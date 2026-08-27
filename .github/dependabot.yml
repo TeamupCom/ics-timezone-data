@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # "/" tells Dependabot to scan .github/workflows in the repo root (the documented form)
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        # bundles bumps for actions/checkout, actions/cache, actions/upload-artifact, etc.
+        patterns:
+          - "actions/*"
+        update-types: ["minor", "patch"]
+
