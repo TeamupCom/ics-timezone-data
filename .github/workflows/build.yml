@@ -39,6 +39,8 @@ jobs:
           make zoneinfo
           tar cvzf zoneinfo.tgz -C http zoneinfo
           tar cvzf zoneinfo-outlook.tgz -C http zoneinfo-outlook
+          (cd http && zip -r - zoneinfo) > zoneinfo.zip
+          (cd http && zip -r - zoneinfo-outlook) > zoneinfo-outlook.zip
       - name: Create the release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 #3.0.2
         env:
@@ -47,3 +49,4 @@ jobs:
           body: Data for Timezone-Database release ${{ env.TZDB_VERSION }}
           name: Release ${{ env.TZDB_VERSION }}
           files: build/zoneinfo*.tgz
+                 build/zoneinfo*.zip
