@@ -16,13 +16,15 @@ jobs:
     name: "Build VTIMEZONE artifacts"
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Creating the release needs write permission
     steps:
       - name: Install required tools
         run: |
           sudo apt-get update && sudo apt-get install -y lzip libglib2.0-dev libgtk2.0-dev
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set TZDB-version
         run: |
           echo "TZDB_VERSION=$(cat tzdb_version)" >> $GITHUB_ENV
@@ -40,7 +42,7 @@ jobs:
           tar cvzf zoneinfo.tgz -C http zoneinfo
           tar cvzf zoneinfo-outlook.tgz -C http zoneinfo-outlook
       - name: Create the release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 #3.0.2
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 #v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
