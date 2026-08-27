@@ -1,0 +1,49 @@
+name: build.yml
+on:
+  push:
+    tags:
+      - '**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: "Build VTIMEZONE artifacts"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Install required tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y lzip libglib2.0-dev libgtk2.0-dev
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set TZDB-version
+        run: |
+          echo "TZDB_VERSION=$(cat tzdb_version)" >> $GITHUB_ENV
+      - name: build vzic
+        run: |
+          mkdir -p build
+          cd build
+          curl -LO https://raw.githubusercontent.com/ical4j/tzurl/refs/heads/develop/Makefile
+          curl -LO https://raw.githubusercontent.com/ical4j/tzurl/refs/heads/develop/.env
+          make vzicbuild
+      - name: create artifacts
+        run: |
+          cd build
+          make zoneinfo
+          tar cvzf zoneinfo.tgz -C http zoneinfo
+          tar cvzf zoneinfo-outlook.tgz -C http zoneinfo-outlook
+      - name: Create the release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 #3.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body: Data for Timezone-Database release ${{ env.TZDB_VERSION }}
+          name: Release ${{ env.TZDB_VERSION }}
+          files: build/zoneinfo*.tgz
