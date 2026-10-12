@@ -44,11 +44,13 @@ jobs:
           (cd https && zip -r - zoneinfo) > zoneinfo.zip
           (cd https && zip -r - zoneinfo-outlook) > zoneinfo-outlook.zip
       - name: Create the release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 #v3.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          body: Data for Timezone-Database release ${{ env.TZDB_VERSION }}
-          name: Release ${{ env.TZDB_VERSION }}
-          files: build/zoneinfo*.tgz
-                 build/zoneinfo*.zip
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "Release $TZDB_VERSION" \
+            --notes "Data for Timezone-Database release $TZDB_VERSION" \
+            build/zoneinfo*.tgz build/zoneinfo*.zip
