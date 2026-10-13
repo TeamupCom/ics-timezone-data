@@ -1,0 +1,78 @@
+name: Check for new tzdb release
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: "Open a PR for a new tzdb tag"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Creating the branch and the commit
+      pull-requests: write # Opening the PR
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      BASE: main
+    steps:
+      - name: Open a PR when upstream has a newer tag
+        run: |
+          set -euo pipefail
+
+          # Don't rely on the API's tag order, pick the highest version
+          latest=$(gh api --paginate "repos/eggert/tz/tags?per_page=100" \
+            --jq '.[].name | select(test("^20[0-9]{2}[a-z]+$"))' \
+            | sort | tail -n1)
+          if [[ -z "$latest" ]]; then
+            echo "No tzdb tag found" >&2
+            exit 1
+          fi
+          current=$(gh api "repos/$GH_REPO/contents/tzdb_version?ref=$BASE" \
+            --jq '.content' | base64 -d | tr -d '[:space:]')
+          echo "Latest tag: $latest, current version: $current"
+
+          if [[ ! "$latest" > "$current" ]]; then
+            echo "Nothing to do"
+            exit 0
+          fi
+
+          branch="update-tzdb-to-$latest"
+          if gh api "repos/$GH_REPO/branches/$branch" --silent 2>/dev/null; then
+            echo "Branch $branch already exists"
+            exit 0
+          fi
+
+          # Look up the reviewers before creating the branch, so a failure
+          # here doesn't leave a branch behind that blocks the next run
+          reviewers=$(gh api --paginate \
+            "repos/$GH_REPO/collaborators?permission=admin" \
+            --jq '.[] | select(.type == "User") | .login' | paste -sd, -)
+          echo "Reviewers: ${reviewers:-none}"
+
+          base_sha=$(gh api "repos/$GH_REPO/git/ref/heads/$BASE" \
+            --jq '.object.sha')
+          file_sha=$(gh api "repos/$GH_REPO/contents/tzdb_version?ref=$BASE" \
+            --jq '.sha')
+
+          gh api -X POST "repos/$GH_REPO/git/refs" \
+            -f ref="refs/heads/$branch" -f sha="$base_sha" --silent
+          gh api -X PUT "repos/$GH_REPO/contents/tzdb_version" \
+            -f message="Set tzdb version to $latest" \
+            -f content="$(printf '%s' "$latest" | base64)" \
+            -f sha="$file_sha" \
+            -f branch="$branch" --silent
+
+          gh pr create \
+            --base "$BASE" \
+            --head "$branch" \
+            --title "Set tzdb version to $latest" \
+            --body "Timezone-Database $latest was tagged: https://github.com/eggert/tz/releases/tag/$latest" \
+            ${reviewers:+--reviewer "$reviewers"}
